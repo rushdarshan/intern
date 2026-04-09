@@ -189,23 +189,7 @@ DEBALES_MAX_PAGES=80
 
 ## 🎥 Demo Instructions
 
-Record a 2–3 minute video:
-
-1. **Setup Phase** (~30 sec)
-   - Show `.env` configuration
-   - Run `pip install -r requirements.txt`
-
-2. **Knowledge Base Build** (~45 sec)
-   - Run `python scraper.py` (crawl 80 pages)
-   - Run `python ingest.py` (create vector store)
-
-3. **Live Demo** (~60 sec)
-   - Launch `streamlit run app.py`
-   - Ask "What does Debales AI do?" → shows RAG response
-   - Ask "Who is the president of the USA?" → shows SERP response
-   - Ask "What is Debales and what is Python?" → shows mixed response
-   - Type "xyzabc notarealword" → shows hallucination guard
-
+Youtube Link - https://youtu.be/zA21HQRzRvE
 ---
 
 ## 🏗️ Technical Highlights
