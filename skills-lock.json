@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "skills": {
+    "check": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "computedHash": "138da691cb692ebc658b83a5b9c1a0eba70ff6f429bd02d378d445048a5f1689"
+    },
+    "design": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "computedHash": "141417f3dec838252d80f23eab3f9f6a34e7097c933d2c24de90d99efcb8ab21"
+    },
+    "health": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "computedHash": "8971fc18ad1713a5d2036bab4ffc0a92de8db25937e473838bd898ea97f14b61"
+    },
+    "hunt": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "computedHash": "7afc55e89e8c6c4c03d338afc5d2d49687427c4fcfcbd3f03e8f410b7c53bd62"
+    },
+    "learn": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "computedHash": "5a4fd29d08d02e07d9addddfe5e4a6f599c37717b0ab4814a10432448d0b38cf"
+    },
+    "rag-implementation": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "0a68c672384c5c6aa7acb286c18f8eb9dce53a058062a8951ac0adca4d01d4ea"
+    },
+    "read": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "computedHash": "e6fc1f831e9dd11d0ad770167aea55f1334dfeba245dbb4914fb07c2be605c38"
+    },
+    "think": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "computedHash": "e89e1942a321af86759989a5d68db23dbc0cfadca9f858e3a1e1eec4a8f27e65"
+    },
+    "write": {
+      "source": "tw93/Waza",
+      "sourceType": "github",
+      "computedHash": "0b8272570558726265fd74b6a421d87ba6a452a521fa50ac14760393f25a729c"
+    }
+  }
+}
