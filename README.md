@@ -1,263 +1,172 @@
-# Debales AI Assistant (LangGraph RAG + SERP)
+# Debales AI Assistant
 
-A production-ready AI assistant that answers questions about **Debales AI using RAG** (internal knowledge base) and **external questions using SERP** (web search). Built with LangGraph for intelligent routing and Streamlit for a modern UI.
+A LangGraph-based assistant that answers Debales AI questions with RAG and external questions with SerpAPI. It includes a Streamlit UI, a CLI, focused Debales scraping, relevance-filtered retrieval, and grounded answer generation that refuses unsupported claims.
 
-## 🎯 Key Features
+## What It Does
 
-- **Intelligent Routing**: Automatically classifies queries (Debales → RAG, External → SERP, Mixed → Both)
-- **No Hallucination**: Returns "I don't know" for unverifiable claims instead of making things up
-- **Citation-Based Answers**: Every answer includes `[1]`, `[2]` references to source documents
-- **Real-time Logging**: Emoji-prefixed logs for transparent execution flow (🤖 classify, 🔍 search, 📚 retrieve, 💬 answer)
-- **Error Resilience**: Graceful error handling — users never see raw exceptions
+- Debales website, blog, AI-agent, logistics, docs, and integration questions go to the local Chroma knowledge base.
+- External questions go to SerpAPI.
+- Mixed questions use both paths.
+- If the retrieved evidence is weak or missing, the assistant replies with `I don't know based on the available context.`
 
-## 🚀 Quick Start
+## Architecture
 
-### 1. Prerequisites
-- Python 3.10+
-- OpenRouter API key (for LLM inference)
-- SerpAPI key (for web search)
-- HuggingFace token (for embedding model)
-
-### 2. Setup
-```bash
-# Clone/download repository
-cd intern
-
-# Create virtual environment (optional but recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy .env template and fill in API keys
-cp .env.example .env
-# Edit .env and add:
-# - OPENROUTER_API_KEY
-# - SERPAPI_API_KEY
-# - HF_TOKEN
+```text
+User question
+  -> classify
+  -> debales -> retrieve from Chroma
+  -> serp    -> search with SerpAPI
+  -> both    -> retrieve from Chroma, then search with SerpAPI
+  -> grounded answer generation with citations
 ```
 
-### 3. Build Knowledge Base (One-time)
-```bash
-# Crawl Debales AI website (~80 pages)
-python scraper.py
+The mixed route is sequential by design so the graph stays easy to explain in an internship submission.
 
-# Chunk, embed, and index into vector store
+## Project Files
+
+- `app.py`: Streamlit chat UI with route/source inspection.
+- `cli.py`: terminal interface for quick demos and testing.
+- `graph.py`: LangGraph workflow and answer generation.
+- `scraper.py`: focused Debales crawler with sitemap support, retries, normalization, and metadata extraction.
+- `ingest.py`: chunking and clean Chroma rebuilds.
+- `rag.py`: vector store loading plus relevance-filtered retrieval.
+- `serp_tool.py`: SerpAPI wrapper with cleaned results and graceful error handling.
+- `config.py`: environment-driven configuration.
+- `tests/`: unit tests for routing, scraper behavior, and SERP result handling.
+
+## Requirements
+
+- Python 3.10+
+- `OPENROUTER_API_KEY`
+- `SERPAPI_API_KEY`
+
+## Setup
+
+```bash
+python -m venv .venv
+# Windows
+.\.venv\Scripts\activate
+# macOS/Linux
+source .venv/bin/activate
+
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Fill in `.env` with your real API keys.
+
+## Build The Knowledge Base
+
+```bash
+python scraper.py
 python ingest.py
 ```
 
-### 4. Run the App
+`python ingest.py` resets and rebuilds the local Chroma store each time, so repeated ingests do not accumulate duplicate chunks.
+
+## Run The Assistant
+
+Streamlit UI:
+
 ```bash
 streamlit run app.py
-# Opens at http://localhost:8501
 ```
 
----
+CLI:
 
-## 📊 How It Works
-
-### Architecture
-```
-User Query
-    ↓
-classify_question (LLM-powered router)
-    ↓
-route_decision (Choose: RAG | SERP | Both | Unknown)
-    ├─→ RAG: HuggingFace embeddings → Chroma vector store → top-4 docs
-    ├─→ SERP: Google Search API → top-5 web results
-    └─→ Both: Execute RAG + SERP in parallel
-    ↓
-generate_answer (LLM synthesizes context + citations)
-    ↓
-User sees answer with [1], [2] references
+```bash
+python cli.py
+python cli.py "What integrations does Debales AI support?" --show-metadata
 ```
 
-### Routing Logic
-| Query Type | Route | Source |
-|-----------|-------|--------|
-| "What does Debales AI do?" | RAG | Internal knowledge base |
-| "Who is Elon Musk?" | SERP | Google Search |
-| "Compare Debales to competitors" | Both | RAG + SERP combined |
-| "Tell me Debales' secrets" | Unknown | No hallucination; graceful refusal |
+## Configuration
 
----
-
-## 💾 Project Structure
-
-```
-.
-├── app.py              # Streamlit UI + main entry point
-├── graph.py            # LangGraph workflow (classify → route → retrieve → answer)
-├── config.py           # Environment configuration loader
-├── scraper.py          # Crawls debales.ai (80 pages)
-├── ingest.py           # Embeds & chunks into Chroma vector store
-├── rag.py              # Vector store retriever
-├── serp_tool.py        # SerpAPI wrapper
-├── embeddings.py       # HuggingFace embedding factory
-├── requirements.txt    # Python dependencies
-├── .env.example        # Environment template
-├── README.md           # This file
-└── data/
-    ├── raw/docs.jsonl           # Scraped content
-    └── vectorstore/             # Chroma persisted index
-```
-
----
-
-## 🧪 Test Results: All Routes Working
-
-| # | Query | Route | Result | Status |
-|---|-------|-------|--------|--------|
-| 1 | "What does Debales AI do?" | RAG | ✓ Returns from knowledge base with citations | PASS |
-| 2 | "Who is Elon Musk?" | SERP | ✓ Returns web search results with citations | PASS |
-| 3 | "Compare Debales and Tesla" | Both | ✓ Combines RAG + SERP results | PASS |
-| 4 | "Does Debales have SOC 2?" | RAG (no results) | ✓ Correctly says "I don't know" | PASS |
-| 5 | "hi" | Unknown | ✓ Too vague; asks for clarification | PASS |
-
----
-
-## 📝 Example Q&A
-
-### Example 1: RAG Query
-```
-Q: What does Debales AI do?
-
-A: Debales AI provides solutions that enhance personalization and efficiency in various 
-sectors including e-commerce and education. It offers AI chat solutions that streamline 
-operations, such as simplifying order placement and reducing cart abandonment. The platform 
-assists learners in acquiring basic Python coding skills [1][3][4].
-```
-
-### Example 2: SERP Query
-```
-Q: Who is Elon Musk?
-
-A: Elon Musk is a businessman and entrepreneur known for his leadership of Tesla, SpaceX, X 
-(formerly Twitter), and xAI. He was born on June 28, 1971, in Pretoria, South Africa, and has 
-been recognized as one of the wealthiest people in the world [1][2].
-```
-
-### Example 3: Mixed Query
-```
-Q: What does Debales AI do and what is the capital of France?
-
-A: Debales AI provides personalization and efficiency solutions for e-commerce and education, 
-with AI chat functionality that streamlines operations and reduces cart abandonment [1]. 
-The capital of France is Paris, located in the north-central part of the country along the 
-Seine River [2].
-```
-
-### Example 4: Hallucination Guard
-```
-Q: Does Debales AI have SOC 2 certification?
-
-A: I don't have enough information to answer that yet. Please rephrase or provide more detail.
-```
-(No fabricated answer — the system correctly declines to hallucinate.)
-
----
-
-## 🔧 Configuration
-
-Edit `.env` to customize:
+Key environment variables:
 
 ```env
-# LLM Provider (OpenRouter)
-OPENROUTER_API_KEY=sk-or-v1-...
+OPENROUTER_API_KEY=
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_MODEL=openai/gpt-4o-mini
 
-# Web Search
-SERPAPI_API_KEY=...
+SERPAPI_API_KEY=
+SERP_TIMEOUT=20
+SERP_MAX_RESULTS=5
 
-# Embedding Model
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-HF_TOKEN=hf_...
-
-# RAG Settings
-RAG_TOP_K=4              # Number of documents to retrieve
-CHUNK_SIZE=900           # Document chunk size
-CHUNK_OVERLAP=150        # Overlap between chunks
-
-# Scraper Settings
 DEBALES_BASE_URL=https://debales.ai
+DEBALES_SITEMAP_URL=https://debales.ai/sitemap.xml
 DEBALES_MAX_PAGES=80
+ALLOWED_PATH_PREFIXES=/blog,/docs,/faq,/logistics,/ai-agent,/ai-agents,/case-study,/case-studies,/integration,/integrations,/product,/products,/solution,/solutions,/use-cases
+EXCLUDED_PATH_PREFIXES=/sign-in,/sign-up,/login,/register,/privacy,/terms,/contact
+REQUEST_TIMEOUT=20
+
+RAW_DOCS_PATH=data/raw/docs.jsonl
+VECTORSTORE_DIR=data/vectorstore
+EMBEDDING_PROVIDER=auto
+EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+EMBEDDING_DIMENSION=1024
+EMBEDDING_DEVICE=cpu
+CHUNK_SIZE=900
+CHUNK_OVERLAP=150
+RAG_TOP_K=4
+RAG_RELEVANCE_THRESHOLD=0.18
 ```
 
----
+`EMBEDDING_PROVIDER=auto` tries Hugging Face embeddings first and falls back to local hashing embeddings if the model is unavailable.
 
-## 🎥 Demo Instructions
+## Example Prompts
 
-Record a 2–3 minute video:
+Debales:
 
-1. **Setup Phase** (~30 sec)
-   - Show `.env` configuration
-   - Run `pip install -r requirements.txt`
+```text
+What does Debales AI do for freight brokers?
+```
 
-2. **Knowledge Base Build** (~45 sec)
-   - Run `python scraper.py` (crawl 80 pages)
-   - Run `python ingest.py` (create vector store)
+External:
 
-3. **Live Demo** (~60 sec)
-   - Launch `streamlit run app.py`
-   - Ask "What does Debales AI do?" → shows RAG response
-   - Ask "Who is the president of the USA?" → shows SERP response
-   - Ask "What is Debales and what is Python?" → shows mixed response
-   - Type "xyzabc notarealword" → shows hallucination guard
+```text
+What is the capital of France?
+```
 
----
+Mixed:
 
-## 🏗️ Technical Highlights
+```text
+How does Debales AI compare with Salesforce Service Cloud for logistics support?
+```
 
-### Routing Decision
-Uses a two-tier approach:
-1. **Fast Path**: Keyword matching for obvious "Debales" queries (0.1s)
-2. **Smart Path**: LLM classification for ambiguous queries (2-3s)
+Unsupported:
 
-### Context Synthesis
-- RAG context from Chroma vector store (HuggingFace embeddings)
-- SERP context from Google Search API (SerpAPI)
-- Both contexts passed to LLM with explicit instructions to cite sources
+```text
+Tell me about Debales AI's unreleased secret roadmap.
+```
 
-### Error Handling
-- All graph nodes wrapped in try-catch
-- User-friendly error messages (no stack traces in UI)
-- Comprehensive logging with emoji prefixes for debugging
+## Reliability Notes
 
-### Performance
-- Graph compilation cached via Streamlit `@st.cache_resource`
-- Embedding model cached after first load (~90MB download)
-- Vector store persisted locally (no re-ingestion needed)
+- Crawl scope is focused to relevant Debales sections instead of all same-domain pages.
+- URLs are normalized before deduping, so fragments and query variants do not create duplicate documents.
+- Retrieval filters low-relevance chunks before answer generation.
+- SERP failures degrade gracefully and do not crash Debales-only answers.
+- The UI and CLI both expose route, warnings, and sources, which makes the graph easy to explain in a demo.
 
----
+## Verification
 
-## 📋 Assignment Evaluation
+Run the unit tests:
 
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| **Correct routing** | ✅ | 6/6 test cases pass; routing logs visible |
-| **Quality scraping** | ✅ | 80 pages crawled; docs properly chunked |
-| **SERP API usage** | ✅ | Web results retrieved with proper formatting |
-| **LangGraph clarity** | ✅ | State machine clear; routing logic auditable |
-| **Code quality** | ✅ | Type hints, logging, error handling throughout |
-| **No hallucination** | ✅ | Unknown queries gracefully decline to answer |
+```bash
+python -m unittest discover -s tests -v
+```
 
----
+Useful manual checks:
 
-## 🤝 Support
+```bash
+python cli.py "What does Debales AI do?" --show-metadata
+python cli.py "What is the capital of France?" --show-metadata
+python cli.py "What integrations do you support?" --show-metadata
+```
 
-- **Issue**: "Vector store not found"
-  - Solution: Run `python scraper.py && python ingest.py`
+## Demo Video Outline
 
-- **Issue**: "SERPAPI_API_KEY is missing"
-  - Solution: Check `.env` has valid key; run `streamlit run app.py` from same directory
-
-- **Issue**: "Embedding model download timeout"
-  - Solution: Run again (first download retries); check internet connection
-
----
-
-## 📄 License
-
-This project is for educational purposes (Debales AI internship assignment).
+1. Show `.env.example` and the main config knobs.
+2. Run `python scraper.py` and `python ingest.py`.
+3. Launch `streamlit run app.py` or `python cli.py`.
+4. Ask one Debales question, one external question, and one mixed question.
+5. Open the route/source metadata for at least one response.

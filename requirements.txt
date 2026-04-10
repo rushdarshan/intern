@@ -4,11 +4,11 @@ langchain
 langchain-community
 langchain-huggingface
 langchain-openai
+langchain-text-splitters
 langgraph
 lxml
 python-dotenv
 requests
-serpapi
 sentence-transformers
 streamlit
 tiktoken

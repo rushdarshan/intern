@@ -1,45 +1,108 @@
 import logging
 import os
+import re
+from typing import TypedDict
 
 from dotenv import load_dotenv
 import requests
+
+from config import SERP_MAX_RESULTS, SERP_TIMEOUT
 
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
 
-def serp_search(query: str, num_results: int = 5) -> list[dict]:
+def _redact_sensitive_text(text: str) -> str:
+    return re.sub(r"api_key=([^&\s]+)", "api_key=[redacted]", text)
+
+
+class SerpResult(TypedDict):
+    title: str
+    link: str
+    snippet: str
+    position: int
+
+
+class SerpResponse(TypedDict):
+    results: list[SerpResult]
+    error: str | None
+
+
+def serp_search(query: str, num_results: int = 5) -> SerpResponse:
     api_key = os.getenv("SERPAPI_API_KEY")
     if not api_key:
-        logger.error("SERPAPI_API_KEY is missing.")
-        raise RuntimeError("SERPAPI_API_KEY is missing.")
+        message = "SERPAPI_API_KEY is missing."
+        logger.error(message)
+        return {"results": [], "error": message}
 
-    logger.info(f"🔍 Searching SerpAPI for: {query}")
+    logger.info("Searching SerpAPI for: %s", query)
     params = {
         "engine": "google",
         "q": query,
-        "num": num_results,
+        "num": min(num_results, SERP_MAX_RESULTS),
         "api_key": api_key,
     }
-    try:
-        response = requests.get("https://serpapi.com/search.json", params=params, timeout=20)
-        response.raise_for_status()
-        results = response.json()
-        organic = results.get("organic_results", []) or []
-        logger.info(f"✓ Found {len(organic)} organic results")
 
-        cleaned = []
-        for item in organic[:num_results]:
+    try:
+        response = requests.get("https://serpapi.com/search.json", params=params, timeout=SERP_TIMEOUT)
+        response.raise_for_status()
+        payload = response.json()
+    except requests.RequestException as exc:
+        message = _redact_sensitive_text(f"SerpAPI request failed: {exc}")
+        logger.warning(message)
+        return {"results": [], "error": message}
+    except ValueError as exc:
+        message = _redact_sensitive_text(f"SerpAPI returned invalid JSON: {exc}")
+        logger.warning(message)
+        return {"results": [], "error": message}
+
+    cleaned: list[SerpResult] = []
+    answer_box = payload.get("answer_box") or {}
+    if answer_box:
+        snippet = answer_box.get("answer") or answer_box.get("snippet") or answer_box.get("title") or ""
+        if snippet:
             cleaned.append(
                 {
-                    "title": item.get("title", ""),
-                    "link": item.get("link", ""),
-                    "snippet": item.get("snippet", ""),
+                    "title": (answer_box.get("title") or "Direct answer").strip(),
+                    "link": (answer_box.get("link") or "").strip(),
+                    "snippet": snippet.strip(),
+                    "position": 0,
                 }
             )
-        logger.info(f"✓ Cleaned {len(cleaned)} results for return")
-        return cleaned
-    except Exception as e:
-        logger.error(f"❌ SerpAPI error: {e}")
-        raise
+
+    knowledge_graph = payload.get("knowledge_graph") or {}
+    description = knowledge_graph.get("description")
+    if description:
+        cleaned.append(
+            {
+                "title": (knowledge_graph.get("title") or "Knowledge graph").strip(),
+                "link": (knowledge_graph.get("website") or "").strip(),
+                "snippet": description.strip(),
+                "position": 0,
+            }
+        )
+
+    organic = payload.get("organic_results", []) or []
+    for index, item in enumerate(organic[:num_results], start=1):
+        snippet = item.get("snippet") or ""
+        cleaned.append(
+            {
+                "title": item.get("title", "").strip(),
+                "link": item.get("link", "").strip(),
+                "snippet": snippet.strip(),
+                "position": index,
+            }
+        )
+
+    deduped: list[SerpResult] = []
+    seen = set()
+    for item in cleaned:
+        key = (item["title"], item["link"], item["snippet"])
+        if not any(key) or key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+
+    logger.info("Retrieved %s cleaned SerpAPI results", len(deduped))
+    return {"results": deduped[:num_results], "error": None}
