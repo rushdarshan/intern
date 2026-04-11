@@ -133,6 +133,8 @@ Mixed:
 How does Debales AI compare with Salesforce Service Cloud for logistics support?
 ```
 
+**Demo Video:** https://youtu.be/zA21HQRzRvE
+
 Unsupported:
 
 ```text
